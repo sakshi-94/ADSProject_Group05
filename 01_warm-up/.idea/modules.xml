@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.iml" filepath="$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.main.iml" filepath="$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.root-01_warm-up-build.iml" filepath="$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.root-01_warm-up-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.test.iml" filepath="$PROJECT_DIR$/.idea/modules/01_warm-up/root-01_warm-up.test.iml" />
+    </modules>
+  </component>
+</project>

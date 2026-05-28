@@ -14,20 +14,37 @@ import chisel3.util._
 class Controller extends Module{
   
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
+    val rxd    = Input(UInt(1.W))   // serial input line
+    val cnt_s  = Input(UInt(1.W))   // signal FROM counter: goes 1 when 8 bits counted
+    val cnt_en = Output(UInt(1.W))  // signal TO counter: enables counting
+    val valid  = Output(UInt(1.W))  // goes HIGH for 1 cycle when byte is ready
     })
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+  // internal register to track whether we are currently receiving
+  // false = idle/waiting, true = receiving data bits
+  val receiving = RegInit(false.B)  // starts as false (idle state)
 
   // state machine
-  /* 
-   * TODO: Describe functionality if the controller as a state machine
-   */
+  when(reset.asBool) {
+    // reset: abort any transmission, go back to idle
+    receiving := false.B
+
+  } .elsewhen(io.cnt_s === 1.U) {
+    // counter says 8 bits done → stop receiving, next cycle is idle
+    receiving := false.B
+
+  } .elsewhen(io.rxd === 0.U && !receiving) {
+    // we are idle AND we see a start bit (0) → start receiving
+    receiving := true.B
+
+  }
+  // otherwise stay in current state
+
+  // cnt_en is 1 while we are receiving
+  io.cnt_en := receiving
+
+  // valid is 1 for exactly one cycle — when counter signals done
+  io.valid  := io.cnt_s
 
 }
 
@@ -36,20 +53,34 @@ class Controller extends Module{
 class Counter extends Module{
   
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
+    val cnt_en = Input(UInt(1.W))   // enable signal FROM controller
+    val cnt_s  = Output(UInt(1.W))  // done signal TO controller (1 when count reaches 8)
     })
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+  // internal register to hold the current count (needs to count 0 to 8, so 4 bits wide)
+  val count = RegInit(0.U(4.W))   // starts at 0
 
   // state machine
-  /* 
-   * TODO: Describe functionality if the counter as a state machine
-   */
+  when(reset.asBool) {
+    // reset: clear the counter
+    count := 0.U
+
+  } .elsewhen(io.cnt_en === 1.U) {
+    // counting is enabled
+    when(count === 8.U) {
+      // reached 8 → reset counter back to 0 for next transmission
+      count := 0.U
+    } .otherwise {
+      // keep counting up
+      count := count + 1.U
+    }
+  } .otherwise {
+    // not enabled → reset counter
+    count := 0.U
+  }
+
+  // cnt_s goes HIGH when we have just counted the 8th bit
+  io.cnt_s := (count === 8.U).asUInt
 
 
 }
@@ -58,20 +89,22 @@ class Counter extends Module{
 class ShiftRegister extends Module{
   
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
+    val rxd    = Input(UInt(1.W))   // serial input: one bit per clock
+    val cnt_en = Input(UInt(1.W))   // only shift when receiving
+    val data   = Output(UInt(8.W))  // 8-bit parallel output
     })
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+  // internal 8-bit register to accumulate the received bits
+  val shiftReg = RegInit(0.U(8.W))  // starts empty
 
   // functionality
-  /* 
-   * TODO: Describe functionality if the shift register
-   */
+  when(io.cnt_en === 1.U) {
+    // shift left by 1, bring new bit in at the LSB
+    // MSB is received first so after 8 shifts the oldest bit ends up at MSB
+    shiftReg := Cat(shiftReg(6, 0), io.rxd)
+  }
+
+  io.data := shiftReg
 }
 
 /** 
@@ -86,27 +119,29 @@ class ShiftRegister extends Module{
   * indicating that a new data byte is ready.
   */
 class ReadSerial extends Module{
-  
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
-    })
+    val rxd   = Input(UInt(1.W))    // serial input line
+    val valid = Output(UInt(1.W))   // 1 for one cycle when byte is ready
+    val data  = Output(UInt(8.W))   // 8-bit received byte
+  })
 
+  // Instantiate the three sub-modules
+  val controller    = Module(new Controller)
+  val counter       = Module(new Counter)
+  val shiftRegister = Module(new ShiftRegister)
 
-  // instanciation of modules
-  /* 
-   * TODO: Instanciate the modules that you need
-   */
+  // Connect Controller
+  controller.io.rxd   := io.rxd           // give controller the serial line
+  controller.io.cnt_s := counter.io.cnt_s // controller listens to counter's done signal
 
-  // connections between modules
-  /* 
-   * TODO: connect the signals between the modules
-   */
+  // Connect Counter
+  counter.io.cnt_en := controller.io.cnt_en  // controller tells counter when to count
 
-  // global I/O 
-  /* 
-   * TODO: Describe output behaviour based on the input values and the internal signals
-   */
+  // Connect Shift Register
+  shiftRegister.io.rxd    := io.rxd                // shift register reads serial line
+  shiftRegister.io.cnt_en := controller.io.cnt_en  // only shift when receiving
 
+  // Global outputs
+  io.valid := controller.io.valid   // valid comes from controller
+  io.data  := shiftRegister.io.data // data comes from shift register
 }

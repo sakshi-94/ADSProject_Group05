@@ -18,18 +18,16 @@ import chisel3.util._
   * There should be no delay between input and output signals, we want to have
   * a combinational behaviour of the component.
   */
-class HalfAdder extends Module{
-  
+class HalfAdder extends Module {
+
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a half adder as presented in the lecture
-     */
-    })
-
-  /* 
-   * TODO: Describe output behaviour based on the input values
-   */
-
+    val a = Input(UInt(1.W))
+    val b = Input(UInt(1.W))
+    val s = Output(UInt(1.W))
+    val co = Output(UInt(1.W))
+  })
+  io.s := io.a ^ io.b
+  io.co := io.a & io.b
 }
 
 /** 
@@ -46,21 +44,24 @@ class HalfAdder extends Module{
 class FullAdder extends Module{
 
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a half adder as presented in the lecture
-     */
+    val a = Input(UInt(1.W))
+    val b = Input(UInt(1.W))
+    val ci = Input(UInt(1.W))
+    val s = Output(UInt(1.W))
+    val co = Output(UInt(1.W))
     })
+  val ha1 = Module(new HalfAdder)
+  val ha2 = Module(new HalfAdder)
 
+  ha1.io.a := io.a //module input a is connected to ha1's input a
+  ha1.io.b := io.b //module input b is connected to ha1's input b
 
-  /* 
-   * TODO: Instanciate the two half adders you want to use based on your HalfAdder class
-   */
+  ha2.io.a := ha1.io.s //ha1's sum output is connected to ha2's input a
+  ha2.io.b := io.ci // ci iss connected to ha2's input b
 
+  io.s := ha2.io.s
 
-  /* 
-   * TODO: Describe output behaviour based on the input values and the internal signals
-   */
-
+  io.co := ha1.io.co | ha2.io.co
 }
 
 /** 
@@ -76,17 +77,38 @@ class FullAdder extends Module{
 class FourBitAdder extends Module{
 
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a 4-bit ripple-carry-adder as presented in the lecture
-     */
+    val a = Input(UInt(4.W))
+    val b = Input(UInt(4.W))
+    val result = Output(UInt(4.W))
+    val co_3 = Output(UInt(1.W))
     })
 
-  /* 
-   * TODO: Instanciate the full adders and one half adderbased on the previously defined classes
-   */
+  val ha = Module(new HalfAdder)
+  ha.io.a := io.a(0)
+  ha.io.b := io.b(0)
+  val s0 = ha.io.s
+  val co_0 = ha.io.co
 
+  val fa1 = Module(new FullAdder)
+  fa1.io.a := io.a(1)
+  fa1.io.b := io.b(1)
+  fa1.io.ci := co_0
+  val s1 = fa1.io.s
+  val co_1 = fa1.io.co
 
-  /* 
-   * TODO: Describe output behaviour based on the input values and the internal 
-   */
+  val fa2 = Module(new FullAdder)
+  fa2.io.a := io.a(2)
+  fa2.io.b := io.b(2)
+  fa2.io.ci := co_1
+  val s2 = fa2.io.s
+  val co_2 = fa2.io.co
+
+  val fa3 = Module(new FullAdder)
+  fa3.io.a := io.a(3)
+  fa3.io.b := io.b(3)
+  fa3.io.ci := co_2
+  val s3 = fa3.io.s
+
+  io.result := Cat(s3, s2, s1, s0)
+  io.co_3 := fa3.io.co
 }
